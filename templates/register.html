@@ -13,11 +13,17 @@
         
         <form method="POST" action="">
             {{ form.hidden_tag() }}
-            {{ form.username() }}
-            {{ form.password() }}
-            {{ form.submit() }}
+            
+            <label for="{{ form.username.id }}">Email</label>
+            {{ form.username(placeholder="Seu email") }}
+            
+            <label for="{{ form.password.id }}">Senha</label>
+            {{ form.password(placeholder="Sua senha") }}
+            
+            {{ form.submit(class="btn") }}
         </form>
-    <a href="{{url_for('login')}}">Já tenho uma conta</a><br>
+        
+        <a href="{{ url_for('login') }}">Já tenho uma conta</a><br>
     </div>
 </body>
 </html>

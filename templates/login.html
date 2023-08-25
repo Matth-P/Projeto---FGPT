@@ -10,15 +10,19 @@
 <body>
     <div class="container">
         <img src="index.png" alt="Logo" class="logo">
-        <!-- Substitua 'caminho/para/imagem.png' pelo caminho para sua imagem -->
-    
+        
         <form method="POST" action="">
             {{ form.hidden_tag() }}
-            {{ form.username() }}
-            {{ form.password() }}
+            <label for="{{ form.username.id }}">Email</label>
+            {{ form.username(placeholder="Seu email") }}
+            
+            <label for="{{ form.password.id }}">Senha</label>
+            {{ form.password(placeholder="Sua senha") }}
+            
             <button class="btn" type="submit">Entrar</button>
-            </form>
-        <a href="{{url_for('register')}}">Cadastre-se</a><br> <!-- Alterado para "Cadastre-se" -->
-        </div>
+        </form>
+        
+        <a href="{{ url_for('register') }}">Cadastre-se</a><br>
+    </div>
 </body>
 </html>

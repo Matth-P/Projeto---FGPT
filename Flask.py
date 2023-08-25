@@ -1,10 +1,11 @@
-from flask import Flask, render_template, url_for, redirect, request
+from flask import Flask, render_template, url_for, redirect
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin, login_user, LoginManager, login_required, logout_user
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField
 from wtforms.validators import InputRequired, Length, ValidationError
 from flask_bcrypt import Bcrypt
+import pyrebase
 import BancoDeDados as bd
 
 app = Flask(__name__, template_folder='templates')
@@ -16,35 +17,47 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = "login"
 
+config = {
+    'apiKey': "AIzaSyBWC2Qxi4yl3dSh4bnLQGJuSwrRP3i4ML0",
+    'authDomain': "user-database-c21a3.firebaseapp.com",
+    'projectId': "user-database-c21a3",
+    'storageBucket': "user-database-c21a3.appspot.com",
+    'messagingSenderId': "543642433638",
+    'appId': "1:543642433638:web:da1527f8c5faa9a32ad5a7",
+    'databaseURL': ''
+}
+
+firebase = pyrebase.initialize_app(config)
+auth = firebase.auth()
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    return User(user_id, None)
 
 
-class User(db.Model, UserMixin):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(40), nullable=False, unique=True)
-    password = db.Column(db.String(20), nullable=False)
-
+class User(UserMixin):
+    def __init__(self, uid, email):
+        self.id = uid
+        self.email = email
 
 class RegisterForm(FlaskForm):
     username = StringField(validators=[InputRequired(), Length(
-        min=4, max=40)], render_kw={"placeholder": "Nome de Usuário"})
+        min=4, max=40)], render_kw={"placeholder": "Email"})
     password = PasswordField(validators=[InputRequired(), Length(
         min=4, max=20)], render_kw={"placeholder": "Senha"})
     submit = SubmitField("Registrar")
 
     def validate_username(self, field):
-        existing_user_username = User.query.filter_by(
-            username=field.data).first()
-        if existing_user_username:
-            raise ValidationError("Nome de usuário já existe")
-
+        try:
+            user_info = auth.get_account_info(self.username.data + "@domain.com")
+            if user_info:
+                raise ValidationError("Email já está em uso")
+        except Exception as e:
+            pass  # No user found, which is good
 
 class LoginForm(FlaskForm):
     username = StringField(validators=[InputRequired(), Length(
-        min=4, max=40)], render_kw={"placeholder": "Nome de Usuário"})
+        min=4, max=40)], render_kw={"placeholder": "Email"})
     password = PasswordField(validators=[InputRequired(), Length(
         min=4, max=20)], render_kw={"placeholder": "Senha"})
     submit = SubmitField("Entrar")
@@ -60,10 +73,17 @@ def home():
 def login():
     form = LoginForm()
     if form.validate_on_submit():
-        user = User.query.filter_by(username=form.username.data).first()
-        if user and bcrypt.check_password_hash(user.password, form.password.data):
+        try:
+            user = auth.sign_in_with_email_and_password(form.username.data, form.password.data)
+            user_id = user['localId']
+            user_info = auth.get_account_info(user['idToken'])
+            email = user_info['users'][0]['email']
+            
+            user = User(user_id, email)
             login_user(user)
             return redirect(url_for('home'))
+        except Exception as e:
+            print(e)  # Handle authentication errors
     return render_template('login.html', form=form)
 
 
@@ -124,13 +144,12 @@ def register():
     form = RegisterForm()
 
     if form.validate_on_submit():
-        hashed_password = bcrypt.generate_password_hash(
-            form.password.data).decode('utf-8')
-        new_user = User(username=form.username.data, password=hashed_password)
-        db.session.add(new_user)
-        db.session.commit()
-        return redirect(url_for('login'))
-
+        try:
+            auth.create_user_with_email_and_password(form.username.data, form.password.data)
+            return redirect(url_for('login'))
+        except Exception as e:
+            print(e)  # Handle registration errors
+            
     return render_template('register.html', form=form)
 
 
